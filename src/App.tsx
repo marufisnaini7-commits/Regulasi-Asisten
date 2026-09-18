@@ -269,6 +269,14 @@ export default function App() {
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
+        if (res.status === 404) {
+          const err: any = new Error(
+            'Layanan AI Backend tidak ditemukan (404). Jika dibuka melalui GitHub Pages (hosting statis), GitHub Pages tidak menjalankan server Node.js. Sambungkan repositori GitHub ini ke Render atau Vercel agar backend Express & Gemini API aktif otomatis.'
+          );
+          err.isBackendMissing = true;
+          throw err;
+        }
+
         const isQuota = res.status === 429 || data.isQuotaExceeded;
         const err: any = new Error(data.error || `Server error: ${res.status}`);
         err.isQuota = isQuota;

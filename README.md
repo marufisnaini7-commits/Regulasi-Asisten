@@ -53,6 +53,38 @@ npm start
 
 ---
 
+## 🌐 Cara Menghasilkan Link Akses Publik (Live Site) dari GitHub
+
+Anda dapat mempublikasikan situs ini menjadi link live yang dapat diakses siapa saja melalui 2 pilihan:
+
+### Pilihan 1: GitHub Pages (Otomatis via GitHub Actions)
+Alamat yang dihasilkan: `https://<username>.github.io/<nama-repo>/`
+
+1. Masuk ke repositori GitHub Anda.
+2. Buka tab **Settings** ➔ **Pages** (di bilah navigasi sebelah kiri).
+3. Di bagian **Build and deployment** ➔ **Source**, ubah dari *Deploy from a branch* menjadi **GitHub Actions**.
+4. GitHub Actions akan secara otomatis menjalankan workflow `.github/workflows/deploy-pages.yml` setiap kali Anda melakukan push ke branch `main`.
+5. Setelah beberapa saat, link aktif `https://<username>.github.io/<nama-repo>/` akan langsung muncul di halaman tersebut.
+
+> ℹ️ **Catatan Fitur**: GitHub Pages adalah hosting berkas statis. Seluruh fitur katalog dokumen, pencarian pasal, filter UU/PP/PERBA/KEPKA, serta komparasi regulasi berfungsi 100%. Untuk fitur Tanya Jawab AI dengan backend, gunakan Pilihan 2 di bawah.
+
+---
+
+### Pilihan 2: Hubungkan Repositori GitHub ke Render (Full-Stack + AI Aktif)
+Alamat yang dihasilkan: `https://<nama-repo>.onrender.com`
+
+1. Buka [render.com](https://render.com) dan login menggunakan akun GitHub Anda.
+2. Klik **New +** ➔ **Web Service**.
+3. Pilih repositori GitHub Anda.
+4. Render akan otomatis mendeteksi berkas `render.yaml` yang sudah kami sediakan:
+   - **Build Command**: `npm install && npm run build`
+   - **Start Command**: `npm start`
+5. Di bagian **Environment Variables**, tambahkan:
+   - `GEMINI_API_KEY`: Masukkan kunci API Gemini Anda.
+6. Klik **Create Web Service**. Anda akan langsung mendapatkan link HTTPS publik dengan seluruh fitur pencarian dan asisten AI aktif!
+
+---
+
 ## 🛠️ Tumpukan Teknologi (Tech Stack)
 
 - **Frontend**: React 18, TypeScript, Tailwind CSS, Lucide Icons, React Markdown.
