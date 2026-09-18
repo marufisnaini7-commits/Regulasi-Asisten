@@ -196,3 +196,145 @@ export function selectRelevantRegulationContext(
     totalDocsCount: regulations.length,
   };
 }
+
+export interface ClientSideSearchResult {
+  answer: string;
+  citations: string[];
+  isNotFoundNotice?: boolean;
+}
+
+/**
+ * Intelligent client-side fallback search when backend (/api/gemini/analyze)
+ * is not available (e.g. static hosting on GitHub Pages).
+ */
+export function performClientSideRegulationSearch(
+  query: string,
+  regulations: RegulationDocument[],
+  mode: 'chat' | 'summarize' | 'compare' = 'chat'
+): ClientSideSearchResult {
+  if (!regulations || regulations.length === 0) {
+    return {
+      answer:
+        '⚠️ **Belum Ada Basis Data Regulasi yang Dimuat**\n\nSilakan muat dokumen regulasi melalui menu **Sinkronisasi / Impor Database** di bilah navigasi atas (pilih tab "Impor / Ekspor JSON" atau "Input Teks Manual").',
+      citations: [],
+      isNotFoundNotice: true,
+    };
+  }
+
+  const qLower = query.toLowerCase();
+  const keywords = extractKeywords(query);
+  const numbersInQuery = query.match(/\b\d+\b/g) || [];
+  const categoriesInQuery = ['uu', 'pp', 'perba', 'kepka', 'kpt'].filter((cat) =>
+    new RegExp(`\\b${cat}\\b`, 'i').test(query)
+  );
+
+  const scoredArticles: ScoredArticle[] = [];
+
+  for (const doc of regulations) {
+    const docNumLower = doc.number.toLowerCase();
+    const docTitleLower = doc.title.toLowerCase();
+    const docCategoryLower = doc.category.toLowerCase();
+
+    let docTargetScore = 0;
+    if (categoriesInQuery.includes(docCategoryLower)) {
+      docTargetScore += 8;
+    }
+    for (const num of numbersInQuery) {
+      if (docNumLower.includes(num)) {
+        docTargetScore += 18;
+      }
+    }
+    if (qLower.includes(docTitleLower) || docTitleLower.includes(qLower)) {
+      docTargetScore += 15;
+    }
+
+    const articles = doc.articles || [];
+    for (const art of articles) {
+      let score = docTargetScore;
+      const pasalLower = art.pasal.toLowerCase();
+      const contentLower = art.content.toLowerCase();
+
+      for (const num of numbersInQuery) {
+        if (pasalLower.includes(num)) {
+          score += 25;
+        }
+      }
+
+      for (const kw of keywords) {
+        if (pasalLower.includes(kw)) {
+          score += 10;
+        }
+        if (contentLower.includes(kw)) {
+          score += 4;
+        }
+      }
+
+      if (keywords.length >= 2) {
+        const fullPhrase = keywords.slice(0, 3).join(' ');
+        if (contentLower.includes(fullPhrase)) {
+          score += 20;
+        }
+      }
+
+      if (score > 0) {
+        scoredArticles.push({
+          docCategory: doc.category,
+          docNumber: doc.number,
+          docTitle: doc.title,
+          pasal: art.pasal,
+          content: art.content.trim(),
+          score,
+        });
+      }
+    }
+  }
+
+  scoredArticles.sort((a, b) => b.score - a.score);
+
+  const topMatches = scoredArticles.slice(0, 5);
+
+  if (topMatches.length === 0) {
+    return {
+      answer: `Informasi mengenai **"${query}"** tidak ditemukan secara spesifik dalam pasal-pasal regulasi yang saat ini tersimpan.\n\n💡 **Saran Pencarian:**\n- Gunakan kata kunci pokok (contoh: *persyaratan karantina*, *tindakan 8T*, *kawasan karantina*, *sertifikat kesehatan*, *pidana karantina*).\n- Cantumkan nomor pasal atau undang-undang (contoh: *Pasal 16 UU 21 2019* atau *PP 29 2023*).\n\n*(Catatan: Anda sedang menggunakan penelusuran regulasi lokal di GitHub Pages. Untuk analisis naratif AI otomatis, hubungkan repositori ke Render.com gratis).*`,
+      citations: [],
+      isNotFoundNotice: true,
+    };
+  }
+
+  const citations: string[] = [];
+  const articleBlocks = topMatches.map((art, idx) => {
+    const citation = `${art.docNumber} - ${art.pasal}`;
+    if (!citations.includes(citation)) {
+      citations.push(citation);
+    }
+
+    const cleanContent =
+      art.content.length > 700 ? art.content.slice(0, 700) + '... *(buka rujukan di bawah untuk teks lengkap)*' : art.content;
+
+    return `#### ${idx + 1}. **${art.docNumber} - ${art.pasal}**\n*${art.docTitle}*\n\n> ${cleanContent.replace(/\n/g, '\n> ')}`;
+  });
+
+  const modeBadge =
+    mode === 'summarize'
+      ? 'Ringkasan Ketentuan Pokok'
+      : mode === 'compare'
+      ? 'Komparasi Dasar Regulasi'
+      : 'Penelusuran Ketentuan Regulasi';
+
+  const answer = `### 📋 ${modeBadge}
+
+> ℹ️ **Mode Penelusuran Langsung (GitHub Pages):**  
+> Pertanyaan Anda dijawab langsung dari basis data naskah regulasi yang tersimpan di browser Anda (tanpa backend server).
+
+Berdasarkan penelusuran kata kunci terhadap basis data peraturan perundangan karantina, ditemukan ketentuan berikut:
+
+${articleBlocks.join('\n\n---\n\n')}
+
+---
+🔍 *Klik tombol rujukan di bawah untuk membaca pasal selengkapnya, menyalin isi pasal, atau membandingkannya.*`;
+
+  return {
+    answer,
+    citations,
+  };
+}

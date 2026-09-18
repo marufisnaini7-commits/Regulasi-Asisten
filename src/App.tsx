@@ -7,7 +7,10 @@ import { CitationDetailModal } from './components/CitationDetailModal';
 import { DEFAULT_REGULATIONS } from './data/defaultRegulations';
 import { ChatMessage, DriveSyncConfig, RegulationDocument } from './types';
 import { initAuth, getAccessToken } from './services/firebaseAuth';
-import { selectRelevantRegulationContext } from './services/regulationSearch';
+import {
+  selectRelevantRegulationContext,
+  performClientSideRegulationSearch,
+} from './services/regulationSearch';
 import {
   fetchDriveFiles,
   fetchFileContent,
@@ -269,12 +272,20 @@ export default function App() {
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        if (res.status === 404) {
-          const err: any = new Error(
-            'Layanan AI Backend tidak ditemukan (404). Jika dibuka melalui GitHub Pages (hosting statis), GitHub Pages tidak menjalankan server Node.js. Sambungkan repositori GitHub ini ke Render atau Vercel agar backend Express & Gemini API aktif otomatis.'
-          );
-          err.isBackendMissing = true;
-          throw err;
+        if (res.status === 404 || res.status === 405) {
+          // GitHub Pages is static and rejects POST with 405 or 404. Fall back to smart client-side search!
+          const fallbackResult = performClientSideRegulationSearch(text, regulations, mode);
+          const assistantMsg: ChatMessage = {
+            id: `ast-${Date.now()}`,
+            role: 'assistant',
+            content: fallbackResult.answer,
+            timestamp: new Date().toISOString(),
+            citations: fallbackResult.citations,
+            isNotFoundNotice: fallbackResult.isNotFoundNotice,
+            mode,
+          };
+          setMessages((prev) => [...prev, assistantMsg]);
+          return;
         }
 
         const isQuota = res.status === 429 || data.isQuotaExceeded;
@@ -296,6 +307,26 @@ export default function App() {
       setMessages((prev) => [...prev, assistantMsg]);
     } catch (err: any) {
       console.error('Chat error:', err);
+
+      // If network failure on static hosting (e.g. CORS/blocked POST)
+      const isStaticOrNetworkFail =
+        err.name === 'TypeError' &&
+        (err.message?.includes('fetch') || err.message?.includes('Failed') || err.message?.includes('Network'));
+
+      if (isStaticOrNetworkFail) {
+        const fallbackResult = performClientSideRegulationSearch(text, regulations, mode);
+        const assistantMsg: ChatMessage = {
+          id: `ast-${Date.now()}`,
+          role: 'assistant',
+          content: fallbackResult.answer,
+          timestamp: new Date().toISOString(),
+          citations: fallbackResult.citations,
+          isNotFoundNotice: fallbackResult.isNotFoundNotice,
+          mode,
+        };
+        setMessages((prev) => [...prev, assistantMsg]);
+        return;
+      }
 
       const isQuota =
         err.isQuota ||
