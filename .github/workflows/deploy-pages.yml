@@ -28,13 +28,15 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci || npm install
+        run: npm install
 
       - name: Build static web app
         run: npx vite build
+
+      - name: Add .nojekyll to prevent Jekyll processing
+        run: touch ./dist/.nojekyll
 
       - name: Setup GitHub Pages
         uses: actions/configure-pages@v5
@@ -47,3 +49,4 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
