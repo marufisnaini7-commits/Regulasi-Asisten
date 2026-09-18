@@ -281,6 +281,11 @@ export async function parsePublicDriveFolder(folderUrlOrId: string): Promise<Pub
   });
 
   if (!res.ok) {
+    if (res.status === 404) {
+      throw new Error(
+        'Server backend Express (/api/drive/*) tidak tersedia di hosting statis (seperti GitHub Pages). Gunakan tab "Backup / Impor Database (.json)" untuk mengimpor peraturan secara instan, atau deploy repositori ini ke Render.com (gratis) agar backend Node.js aktif otomatis.'
+      );
+    }
     const errData = await res.json().catch(() => ({}));
     throw new Error(errData.error || `Gagal membaca folder Google Drive (${res.status}). Pastikan link folder publik dapat diakses.`);
   }

@@ -388,6 +388,7 @@ export default function App() {
         onUpdateSyncConfig={setSyncConfig}
         onAddRegulation={handleAddRegulation}
         onBulkUpdateRegulations={handleBulkUpdateRegulations}
+        allRegulations={regulations}
         userEmail={userEmail}
         setUserEmail={setUserEmail}
         accessToken={accessToken}
