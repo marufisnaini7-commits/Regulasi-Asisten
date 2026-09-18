@@ -242,6 +242,31 @@ export default function App() {
     setMessages(newHistory);
     setIsLoading(true);
 
+    const isStaticHosting =
+      typeof window !== 'undefined' &&
+      (window.location.hostname.includes('github.io') ||
+        window.location.hostname.includes('pages.dev') ||
+        window.location.protocol === 'file:');
+
+    // On GitHub Pages (static hosting with no Node.js backend), immediately use client-side search
+    if (isStaticHosting) {
+      setTimeout(() => {
+        const fallbackResult = performClientSideRegulationSearch(text, regulations, mode);
+        const assistantMsg: ChatMessage = {
+          id: `ast-${Date.now()}`,
+          role: 'assistant',
+          content: fallbackResult.answer,
+          timestamp: new Date().toISOString(),
+          citations: fallbackResult.citations,
+          isNotFoundNotice: fallbackResult.isNotFoundNotice,
+          mode,
+        };
+        setMessages((prev) => [...prev, assistantMsg]);
+        setIsLoading(false);
+      }, 300);
+      return;
+    }
+
     try {
       // Smart retrieval: extract compact catalog and top relevant articles only
       // Keeps input token count very low (<5,000 tokens) to prevent exceeding the 250,000/min quota
@@ -273,7 +298,7 @@ export default function App() {
 
       if (!res.ok) {
         if (res.status === 404 || res.status === 405) {
-          // GitHub Pages is static and rejects POST with 405 or 404. Fall back to smart client-side search!
+          // Fall back to smart client-side search!
           const fallbackResult = performClientSideRegulationSearch(text, regulations, mode);
           const assistantMsg: ChatMessage = {
             id: `ast-${Date.now()}`,
@@ -308,10 +333,12 @@ export default function App() {
     } catch (err: any) {
       console.error('Chat error:', err);
 
-      // If network failure on static hosting (e.g. CORS/blocked POST)
+      // If 405, 404 or network failure on static hosting (e.g. CORS/blocked POST)
       const isStaticOrNetworkFail =
-        err.name === 'TypeError' &&
-        (err.message?.includes('fetch') || err.message?.includes('Failed') || err.message?.includes('Network'));
+        err.message?.includes('405') ||
+        err.message?.includes('404') ||
+        (err.name === 'TypeError' &&
+          (err.message?.includes('fetch') || err.message?.includes('Failed') || err.message?.includes('Network')));
 
       if (isStaticOrNetworkFail) {
         const fallbackResult = performClientSideRegulationSearch(text, regulations, mode);
