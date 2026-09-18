@@ -1,0 +1,6 @@
+{
+  "name": "Asisten Regulasi Karantina & ASN",
+  "description": "Asisten analisis hukum dan regulasi perkarantinaan serta ASN berbasis dokumen UU, PP, PERBA, dan KEPKA/KPT dengan sinkronisasi Google Drive.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
